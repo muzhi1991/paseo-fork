@@ -1,5 +1,7 @@
 import http from "node:http";
 import { readFileSync } from "node:fs";
+import { createGzip } from "node:zlib";
+import { pipeline } from "node:stream";
 import { WebSocket, WebSocketServer } from "ws";
 import { createPaseoClient } from "@getpaseo/client";
 
@@ -70,6 +72,24 @@ function headers(req) {
     delete result[name];
   return result;
 }
+function acceptsGzip(header = "") {
+  return header.split(",").some((entry) => {
+    const [name, ...parameters] = entry.trim().toLowerCase().split(";");
+    const quality = parameters.find((value) => value.trim().startsWith("q="));
+    return name === "gzip" && (!quality || Number(quality.trim().slice(2)) > 0);
+  });
+}
+function isVersionedWebAsset(req, response) {
+  // Only content-addressed application code is cacheable. HTML, bootstrap data,
+  // workspace files and APIs must retain their authenticated no-store behavior.
+  return (
+    ["GET", "HEAD"].includes(req.method) &&
+    response.statusCode === 200 &&
+    /^\/_expo\/static\/(?:js\/web|css)\/[a-zA-Z0-9_-]+-[a-f0-9]{32}\.(?:js|css)$/.test(
+      new URL(req.url, publicOrigin).pathname,
+    )
+  );
+}
 const server = http.createServer(async (req, res) => {
   if (!(await authenticated(req))) {
     res.writeHead(401, {
@@ -107,15 +127,29 @@ const server = http.createServer(async (req, res) => {
       headers: headers(req),
     },
     (response) => {
+      const cacheable = isVersionedWebAsset(req, response);
+      const compress =
+        cacheable &&
+        req.method === "GET" &&
+        !response.headers["content-encoding"] &&
+        acceptsGzip(req.headers["accept-encoding"]);
       const outgoing = {
         ...response.headers,
         "content-security-policy": `frame-ancestors ${panel.origin} ${publicOrigin}`,
-        "cache-control": "no-store",
+        "cache-control": cacheable ? "private, max-age=31536000, immutable" : "no-store",
       };
+      if (cacheable) outgoing.vary = [outgoing.vary, "Accept-Encoding"].filter(Boolean).join(", ");
+      if (compress) {
+        outgoing["content-encoding"] = "gzip";
+        delete outgoing["content-length"];
+        delete outgoing["accept-ranges"];
+        delete outgoing.etag;
+      }
       delete outgoing["set-cookie"];
       delete outgoing["x-frame-options"];
       res.writeHead(response.statusCode ?? 502, outgoing);
-      response.pipe(res);
+      if (compress) pipeline(response, createGzip(), res, () => {});
+      else response.pipe(res);
     },
   );
   proxy.on("error", () => {

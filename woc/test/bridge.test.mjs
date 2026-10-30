@@ -34,6 +34,12 @@ test(
     let received;
     const daemon = http.createServer((req, res) => {
       received = req.headers;
+      if (req.url?.startsWith("/_expo/static/")) {
+        res.setHeader("content-type", "application/javascript");
+        res.setHeader("content-length", Buffer.byteLength("const sample = 1;".repeat(1000)));
+        res.end("const sample = 1;".repeat(1000));
+        return;
+      }
       res.end("paseo fixture");
     });
     const daemonPort = await listen(daemon);
@@ -54,6 +60,7 @@ test(
       },
       stdio: ["ignore", "ignore", "pipe"],
     });
+    const exited = once(child, "exit");
     let errors = "";
     child.stderr.on("data", (chunk) => {
       errors += chunk;
@@ -92,6 +99,31 @@ test(
       assert.equal(received.cookie, undefined);
       assert.equal(received.authorization, `Bearer ${secret}`);
       assert.equal(received.host, `127.0.0.1:${port}`);
+      assert.equal(r.headers.get("cache-control"), "no-store");
+      const asset = "/_expo/static/js/web/index-0123456789abcdef0123456789abcdef.js";
+      const compressed = await fetch(origin + asset, {
+        headers: { cookie: "woc_sess=valid", "accept-encoding": "gzip" },
+      });
+      assert.equal(compressed.headers.get("content-encoding"), "gzip");
+      assert.equal(compressed.headers.get("cache-control"), "private, max-age=31536000, immutable");
+      assert.match(compressed.headers.get("vary"), /Accept-Encoding/i);
+      assert.equal(await compressed.text(), "const sample = 1;".repeat(1000));
+      const plain = await fetch(origin + asset, {
+        headers: { cookie: "woc_sess=valid", "accept-encoding": "gzip;q=0, identity" },
+      });
+      assert.equal(plain.headers.get("content-encoding"), null);
+      assert.equal(await plain.text(), "const sample = 1;".repeat(1000));
+      const dynamic = await fetch(origin + "/api/private.js", {
+        headers: { cookie: "woc_sess=valid", "accept-encoding": "gzip" },
+      });
+      assert.equal(dynamic.headers.get("cache-control"), "no-store");
+      assert.equal(dynamic.headers.get("content-encoding"), null);
+      const unversioned = await fetch(origin + "/_expo/static/js/web/latest.js", {
+        headers: { cookie: "woc_sess=valid", "accept-encoding": "gzip" },
+      });
+      assert.equal(unversioned.headers.get("cache-control"), "no-store");
+      await unversioned.text();
+      assert.equal((await fetch(origin + asset)).status, 401);
       const bad = new WebSocket(`ws://127.0.0.1:${port}/ws`, {
         headers: { cookie: "woc_sess=valid", origin: "https://foreign.invalid" },
       });
@@ -118,7 +150,7 @@ test(
     } finally {
       socket?.terminate();
       child.kill("SIGTERM");
-      await once(child, "exit");
+      await exited;
       for (const ws of wsServer.clients) ws.terminate();
       wsServer.close();
       panel.closeAllConnections();
