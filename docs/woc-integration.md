@@ -2,7 +2,11 @@
 
 Use `?woc=1` for the simplified WOC view. `?woc=0` restores the original Paseo UI in that tab. The fork retains the upstream chat timeline, composer, file explorer, workspace tabs, history and agent lifecycle. WOC presentation belongs in `packages/app/src/woc`; shared components have small, explicit presentation gates.
 
-The first deployment uses one workspace, `/workspace/woc`, and one Pi provider. New conversations default to `cliproxy/deepseek-flash`; `cliproxy/glm-5.3-flash` is the other configured model. The model key lives in a private mounted file. Never copy it into source, a browser configuration response or a diagnostic transcript.
+The first deployment uses one workspace, `/workspace/woc`, and one Pi provider. New conversations default to `cliproxy/deepseek-flash`; `cliproxy/glm-5.3-flash` is the other configured model. The model key lives in a private mounted file. Never copy it into source, a browser configuration response or a diagnostic transcript. Both models accept text and images and expose Low, Medium (default), High and Max. CLIProxy receives the chosen effort unchanged; unsupported Off, Minimal and XHigh are hidden through Pi model capabilities.
+
+Model budgets are deployment policy supplied by the operator: DeepSeek uses `contextWindow=1048576`, `maxTokens=262144`; GLM uses `contextWindow=262144`, `maxTokens=65536`. Pi treats `contextWindow` as the total context budget, not a promise of that much prompt plus a separate output allowance. Short requests verify parameter acceptance, not full-window quality or long-output capacity. Keep model metadata in the runtime bootstrap, not hardcoded in a UI selector. On an existing deployment, update the persisted Pi default thinking level to `medium`; bootstrap creates settings only when absent and preserves other operator settings.
+
+The WOC sidebar contains new conversation, title/time rows, per-row overflow actions and a bottom archive toggle. The composer owns model and effort selection. Files open from the upper-right toolbar. The single-workspace heading and unavailable voice controls are hidden only in WOC mode; upstream views remain available with `?woc=0`. Use the shared menu and toolbar primitives for additional actions instead of adding permanent sidebar controls.
 
 ```mermaid
 flowchart LR

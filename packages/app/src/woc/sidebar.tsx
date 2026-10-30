@@ -1,6 +1,6 @@
 import { useCallback, useState } from "react";
 import { ScrollView, Text, View } from "react-native";
-import { StyleSheet } from "react-native-unistyles";
+import { StyleSheet, withUnistyles } from "react-native-unistyles";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import type { DaemonClient, FetchAgentsEntry } from "@getpaseo/client/internal/daemon-client";
 import { Button } from "@/components/ui/button";
@@ -11,9 +11,20 @@ import { navigateToAgent } from "@/utils/navigate-to-agent";
 import { useDirectoryDemand } from "@/hooks/use-directory-demand";
 import { useIsCompactFormFactor } from "@/constants/layout";
 import { usePanelStore } from "@/stores/panel-store";
-import { isWeb } from "@/constants/platform";
-import { openExplorerSidebarView } from "@/workspace-tabs/explorer-sidebar";
+import { Archive, MessageSquare, MoreVertical } from "lucide-react-native";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem } from "@/components/ui/dropdown-menu";
+import { ToolbarButton } from "@/components/ui/pane-content-toolbar";
+import { mutedIconColorMapping } from "@/components/ui/icon-button-chrome";
+import { SidebarCloseButton } from "@/components/headers/sidebar-close-button";
+import { confirmDialog } from "@/utils/confirm-dialog";
 import { useWocConfig } from "./config";
+
+const ArchiveIcon = withUnistyles(Archive);
+const ChatsIcon = withUnistyles(MessageSquare);
+const MoreIcon = withUnistyles(MoreVertical);
+const moreIcon = <MoreIcon size={16} uniProps={mutedIconColorMapping} />;
+const archiveIcon = <ArchiveIcon size={18} uniProps={mutedIconColorMapping} />;
+const chatsIcon = <ChatsIcon size={18} uniProps={mutedIconColorMapping} />;
 
 export function WocSidebar({ active }: { active: boolean }) {
   const hosts = useHosts();
@@ -42,7 +53,6 @@ function WocConversations({ serverId }: { serverId: string }) {
   const cache = useQueryClient();
   const isCompact = useIsCompactFormFactor();
   const [archived, setArchived] = useState(false);
-  const [model, setModel] = useState("cliproxy/deepseek-flash");
   const history = useFetchQuery({
     queryKey: ["woc-conversations", serverId],
     dataShape: "list",
@@ -75,32 +85,26 @@ function WocConversations({ serverId }: { serverId: string }) {
           workspaceId,
           cwd: config.data.workspacePath,
           provider: "pi",
-          model,
+          model: config.data.model,
         });
         setArchived(false);
         open(agent.id);
       }),
-    [mutate, client, workspaceId, config.data, model, open],
+    [mutate, client, workspaceId, config.data, open],
   );
-  const files = useCallback(() => {
-    if (workspaceId)
-      openExplorerSidebarView({
-        isCompact,
-        workspaceKey: `${serverId}:${workspaceId}`,
-        view: "files",
-      });
-  }, [isCompact, serverId, workspaceId]);
-  const showCurrent = useCallback(() => setArchived(false), []);
-  const showArchived = useCallback(() => setArchived(true), []);
+  const toggleArchived = useCallback(() => setArchived((value) => !value), []);
+  const close = useCallback(() => usePanelStore.getState().showMobileAgent(), []);
   const conversations = (history.data ?? []).filter(
     (entry) => entry.agent.workspaceId === workspaceId && !!entry.agent.archivedAt === archived,
   );
   const error = action.error ?? history.error ?? config.error;
   return (
-    <View style={[styles.sidebar, isCompact && styles.overlay]}>
+    <View testID="woc-conversations" style={[styles.sidebar, isCompact && styles.overlay]}>
       <View style={styles.heading}>
-        <Text style={styles.title}>AI 助手</Text>
-        <Text style={styles.hint}>所有电脑 · 共享工作区</Text>
+        <Text style={styles.title}>{archived ? "已归档" : "AI 助手"}</Text>
+        {isCompact && (
+          <SidebarCloseButton label="关闭会话列表" onPress={close} testID="woc-sidebar-close" />
+        )}
       </View>
       <View style={styles.controls}>
         <Button
@@ -112,23 +116,6 @@ function WocConversations({ serverId }: { serverId: string }) {
         >
           ＋ 新建会话
         </Button>
-        <Text style={styles.hint}>新会话使用的模型</Text>
-        <View style={styles.row}>
-          {config.data?.models.map((value) => (
-            <ModelChoice key={value} value={value} selected={model === value} onSelect={setModel} />
-          ))}
-        </View>
-        <View style={styles.row}>
-          <Button variant={archived ? "ghost" : "secondary"} size="sm" onPress={showCurrent}>
-            会话
-          </Button>
-          <Button variant={archived ? "secondary" : "ghost"} size="sm" onPress={showArchived}>
-            已归档
-          </Button>
-          <Button variant="ghost" size="sm" onPress={files}>
-            文件
-          </Button>
-        </View>
       </View>
       {error && (
         <Text accessibilityRole="alert" style={styles.error}>
@@ -151,21 +138,17 @@ function WocConversations({ serverId }: { serverId: string }) {
             />
           ))}
       </ScrollView>
-      <Text style={styles.footer}>可读取电脑状态；操作前会申请控制权。</Text>
+      <View style={styles.footer}>
+        <ToolbarButton
+          label={archived ? "返回会话" : "已归档会话"}
+          selected={archived}
+          onPress={toggleArchived}
+          testID="woc-archive-toggle"
+        >
+          {archived ? chatsIcon : archiveIcon}
+        </ToolbarButton>
+      </View>
     </View>
-  );
-}
-interface ModelChoiceProps {
-  value: string;
-  selected: boolean;
-  onSelect(value: string): void;
-}
-function ModelChoice({ value, selected, onSelect }: ModelChoiceProps) {
-  const select = useCallback(() => onSelect(value), [onSelect, value]);
-  return (
-    <Button variant={selected ? "secondary" : "ghost"} size="xs" onPress={select}>
-      {value.replace("cliproxy/", "")}
-    </Button>
   );
 }
 interface ConversationProps {
@@ -195,43 +178,61 @@ function Conversation({ agent, client, onOpen, run, busy }: ConversationProps) {
       }),
     [run, client, agent.persistence, agent.id, onOpen],
   );
-  const remove = useCallback(() => {
-    if (isWeb && window.confirm("删除这个会话及其 Paseo 历史记录？工作区文件会保留。"))
+  const remove = useCallback(async () => {
+    if (
+      await confirmDialog({
+        title: "删除会话",
+        message: "删除这个会话及其历史记录？工作区文件会保留。",
+        confirmLabel: "删除",
+        cancelLabel: "取消",
+        destructive: true,
+      })
+    )
       run(async () => {
         await client.deleteAgent(agent.id);
       });
   }, [run, client, agent.id]);
   return (
-    <View style={styles.conversation}>
+    <View style={styles.conversation} testID={`woc-conversation-${agent.id}`}>
       <PressHighlight
         accessibilityRole="button"
+        accessibilityLabel={agent.title || "未命名会话"}
         onPress={open}
         style={styles.open}
         highlightStyle={styles.selected}
       >
-        <Text numberOfLines={2} style={styles.name}>
+        <Text numberOfLines={1} style={styles.name}>
           {agent.title || "未命名会话"}
         </Text>
         <Text style={styles.hint}>
-          {agent.status === "running" ? "正在处理" : "点击查看历史"} ·{" "}
-          {new Date(agent.updatedAt).toLocaleDateString("zh-CN")}
+          {new Date(agent.updatedAt).toLocaleString("zh-CN", {
+            month: "numeric",
+            day: "numeric",
+            hour: "2-digit",
+            minute: "2-digit",
+          })}
         </Text>
       </PressHighlight>
-      <View style={styles.row}>
-        {!agent.archivedAt && (
-          <Button disabled={busy} variant="ghost" size="xs" onPress={archive}>
-            归档
-          </Button>
-        )}
-        {!!agent.archivedAt && !!agent.persistence && (
-          <Button disabled={busy} variant="ghost" size="xs" onPress={restore}>
-            恢复
-          </Button>
-        )}
-        <Button disabled={busy} variant="ghost" size="xs" onPress={remove}>
-          删除
-        </Button>
-      </View>
+      <DropdownMenu>
+        <ToolbarButton kind="menu" label="会话操作" testID={`woc-conversation-menu-${agent.id}`}>
+          {moreIcon}
+        </ToolbarButton>
+        <DropdownMenuContent align="end" width={160}>
+          {!agent.archivedAt && (
+            <DropdownMenuItem disabled={busy} onSelect={archive}>
+              归档
+            </DropdownMenuItem>
+          )}
+          {!!agent.archivedAt && !!agent.persistence && (
+            <DropdownMenuItem disabled={busy} onSelect={restore}>
+              恢复
+            </DropdownMenuItem>
+          )}
+          <DropdownMenuItem disabled={busy} destructive onSelect={remove}>
+            删除
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
     </View>
   );
 }
@@ -245,23 +246,37 @@ const styles = StyleSheet.create((theme) => ({
     height: "100%",
   },
   overlay: { position: "absolute", left: 0, top: 0, bottom: 0, zIndex: 100 },
-  heading: { padding: 20, gap: 6 },
-  title: { color: theme.colors.foreground, fontSize: 20, fontWeight: "600" },
-  hint: { color: theme.colors.foregroundMuted, fontSize: 12, lineHeight: 18 },
-  label: { color: theme.colors.foreground, fontSize: 12 },
-  controls: { paddingHorizontal: 14, gap: 12, paddingBottom: 14 },
-  primary: { backgroundColor: "#497e50", borderRadius: 8, padding: 12, alignItems: "center" },
-  primaryText: { color: "#fff", fontWeight: "600", fontSize: 14 },
-  row: { flexDirection: "row", gap: 6, flexWrap: "wrap" },
-  model: { padding: 7, borderRadius: 6 },
-  selected: { backgroundColor: theme.colors.surface2 },
-  tab: { padding: 9, borderRadius: 6 },
+  heading: {
+    padding: theme.spacing[4],
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  title: {
+    color: theme.colors.foreground,
+    fontSize: theme.fontSize.base,
+    fontWeight: theme.fontWeight.medium,
+  },
+  hint: { color: theme.colors.foregroundMuted, fontSize: theme.fontSize.sm, lineHeight: 18 },
+  controls: { paddingHorizontal: theme.spacing[3], paddingBottom: theme.spacing[3] },
+  primary: { backgroundColor: "#497e50", borderRadius: theme.borderRadius.md },
+  primaryText: { color: "#fff", fontWeight: theme.fontWeight.medium },
+  selected: { backgroundColor: theme.colors.interactionHighlight },
   list: { flex: 1 },
-  listContent: { padding: 14, gap: 8 },
-  conversation: { borderBottomWidth: 1, borderBottomColor: theme.colors.border, paddingBottom: 8 },
-  open: { paddingVertical: 8, gap: 5 },
-  name: { color: theme.colors.foreground, fontSize: 14, lineHeight: 20 },
-  small: { padding: 5 },
-  error: { color: "#b43d37", padding: 14, fontSize: 12 },
-  footer: { color: theme.colors.foregroundMuted, fontSize: 11, lineHeight: 17, padding: 14 },
+  listContent: { padding: theme.spacing[2], gap: theme.spacing[1] },
+  conversation: { flexDirection: "row", alignItems: "center", gap: theme.spacing[1] },
+  open: {
+    flex: 1,
+    minWidth: 0,
+    padding: theme.spacing[2],
+    gap: theme.spacing[1],
+    borderRadius: theme.borderRadius.md,
+  },
+  name: { color: theme.colors.foreground, fontSize: theme.fontSize.base, lineHeight: 20 },
+  error: {
+    color: theme.colors.destructive,
+    padding: theme.spacing[3],
+    fontSize: theme.fontSize.sm,
+  },
+  footer: { padding: theme.spacing[3], alignItems: "flex-start" },
 }));

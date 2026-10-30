@@ -1,3 +1,4 @@
+import { isWocEmbedded } from "@/woc/mode";
 import type { SendShortcut } from "@/hooks/use-settings";
 import {
   useComposerEditingSession,
@@ -2124,7 +2125,7 @@ export const MessageInput = forwardRef<MessageInputRef, MessageInputProps>(
           <View style={styles.rightButtonGroup}>
             {beforeVoiceContent}
             <VoiceButtonTooltip
-              visible={mode.showVoice}
+              visible={mode.showVoice && !isWocEmbedded}
               onVoicePress={handleVoicePress}
               isDictationStartEnabled={isDictationStartEnabled}
               voiceButtonAccessibilityLabel={voiceButtonAccessibilityLabel}

@@ -1,3 +1,4 @@
+import { isWocEmbedded } from "@/woc/mode";
 import {
   useComposerEditingSession,
   useComposerFullscreen,
@@ -2054,7 +2055,7 @@ function ComposerContentImpl({
         isAgentRunning={isAgentRunning}
         hasSendableContent={hasSendableContent}
         isCompact={isCompactLayout}
-        showVoice={mode.showVoice}
+        showVoice={mode.showVoice && !isWocEmbedded}
         buttonIconSize={buttonIconSize}
         handleToggleRealtimeVoice={handleToggleRealtimeVoice}
         isConnected={isConnected}

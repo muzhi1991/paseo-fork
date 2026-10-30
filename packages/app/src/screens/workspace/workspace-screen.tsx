@@ -3317,7 +3317,7 @@ function WorkspaceScreenContent({
   );
   const renderWorkspaceScreenHeader = useCallback(
     () =>
-      showScreenHeader ? (
+      showScreenHeader && !isWocEmbedded ? (
         <ScreenHeader
           left={
             <>

@@ -1,3 +1,4 @@
+import { isWocEmbedded } from "@/woc/mode";
 import { useMemo, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { CompactHeader } from "@/components/headers/compact-header";
@@ -62,9 +63,9 @@ export function CompactWorkspaceHeader({
   return (
     <CompactHeader
       navigation="menu"
-      title={title}
+      title={isWocEmbedded ? undefined : title}
       titleTestID="workspace-header-title"
-      subtitle={projectRow}
+      subtitle={isWocEmbedded ? undefined : projectRow}
       loading={isLoading}
       actions={actions}
     />

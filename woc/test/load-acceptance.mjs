@@ -44,7 +44,8 @@ try {
     const f = page.frameLocator('iframe[title="WOC AI 助手"]');
     await f.getByRole("button", { name: "＋ 新建会话", exact: true }).waitFor({ timeout: 60000 });
     await f
-      .getByRole("button", { name: "deepseek-flash", exact: true })
+      .locator('[data-testid="woc-conversations"] button:not([disabled])')
+      .first()
       .waitFor({ timeout: 60000 });
     const ready = performance.now() - started;
     const inner = page.frames().find((candidate) => candidate.parentFrame() === page.mainFrame());

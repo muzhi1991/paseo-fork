@@ -1,3 +1,5 @@
+import { isWocEmbedded } from "@/woc/mode";
+import { WocFilesToggle } from "@/woc/files-toggle";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import React, {
   Fragment,
@@ -1432,6 +1434,9 @@ function ResolvedWorkspaceDesktopTabsRow({
           rightStyle={tabScrollBoundary.rightShadeStyle}
         />
       </View>
+      {isWocEmbedded && host === "main" && (
+        <WocFilesToggle serverId={normalizedServerId} workspaceId={normalizedWorkspaceId} />
+      )}
       <WorkspacePaneToolbarActions
         panePanelKinds={panePanelKinds}
         host={host}
