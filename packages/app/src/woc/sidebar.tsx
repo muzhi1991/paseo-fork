@@ -78,7 +78,7 @@ function WocConversations({ serverId }: { serverId: string }) {
   const workspaceId = config.data?.workspaceId;
   const open = useCallback(
     (id: string) => {
-      navigateToAgent({ serverId, agentId: id, workspaceId });
+      navigateToAgent({ serverId, agentId: id, workspaceId, pin: true });
       if (isCompact) usePanelStore.getState().showMobileAgent();
     },
     [serverId, workspaceId, isCompact],

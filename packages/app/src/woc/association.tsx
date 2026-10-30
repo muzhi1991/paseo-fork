@@ -149,7 +149,8 @@ export function WocMachineEntry({ serverId }: { serverId: string }) {
       }
       if (!live) return;
       if (id) {
-        navigateToAgent({ serverId, agentId: id, workspaceId });
+        // Explicit history links must survive reconciliation of the active-only directory.
+        navigateToAgent({ serverId, agentId: id, workspaceId, pin: true });
         setReady(true);
       } else setMissing(true);
     })().catch((e) => {
