@@ -1,0 +1,31 @@
+name: woc-agent
+services:
+  agent:
+    image: ${WOC_AGENT_IMAGE:?Set verified runtime image}
+    container_name: woc-agent
+    restart: unless-stopped
+    cpus: 2
+    mem_limit: 4g
+    ports:
+      - "192.168.31.101:36084:6769"
+    environment:
+      WOC_PANEL_URL: http://192.168.31.101:36083
+      WOC_AGENT_PUBLIC_URL: http://192.168.31.101:36084
+      WOC_MODEL_BASE_URL: http://192.168.31.3:8317/v1
+      WOC_PROVISION_TOKEN_FILE: /run/secrets/provision-token
+      WOC_PASEO_PASSWORD_FILE: /run/secrets/paseo-password
+      WOC_IDENTITIES_DIR: /state/identities
+      TZ: Asia/Shanghai
+    volumes:
+      - ./state:/state
+      - ./workspace:/workspace/woc
+      - ./secrets:/run/secrets:ro
+      - ./paseo/woc:/opt/paseo-woc/woc:ro
+      - ./woc:/opt/woc:ro
+      - ./skills:/opt/skills:ro
+      - ./web-ui:/opt/web-ui:ro
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"

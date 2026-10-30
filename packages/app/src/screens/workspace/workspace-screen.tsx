@@ -1,3 +1,4 @@
+import { isWocEmbedded } from "@/woc/mode";
 import { planTimelineTailFetch } from "@/timeline/timeline-sync-plan";
 import { useHostFeature } from "@/runtime/host-features";
 import {
@@ -3200,8 +3201,10 @@ function WorkspaceScreenContent({
   const headerRight = useMemo(
     () => (
       <View style={styles.headerRight}>
-        <PluginHeaderButtons serverId={normalizedServerId} workspaceId={normalizedWorkspaceId} />
-        {workspaceDescriptor && workspaceDescriptor.scripts.length > 0 ? (
+        {!isWocEmbedded && (
+          <PluginHeaderButtons serverId={normalizedServerId} workspaceId={normalizedWorkspaceId} />
+        )}
+        {!isWocEmbedded && workspaceDescriptor && workspaceDescriptor.scripts.length > 0 ? (
           <WorkspaceScriptsButton
             serverId={normalizedServerId}
             workspaceId={normalizedWorkspaceId}
@@ -3213,7 +3216,7 @@ function WorkspaceScreenContent({
             hideLabels
           />
         ) : null}
-        {workspaceDirectory ? (
+        {!isWocEmbedded && workspaceDirectory ? (
           <WorkspaceOpenInEditorButton
             serverId={normalizedServerId}
             cwd={workspaceDirectory}
@@ -3224,7 +3227,9 @@ function WorkspaceScreenContent({
         ) : null}
         {workspaceDirectory ? (
           <>
-            <WorkspaceActions serverId={normalizedServerId} cwd={workspaceDirectory} />
+            {!isWocEmbedded && (
+              <WorkspaceActions serverId={normalizedServerId} cwd={workspaceDirectory} />
+            )}
             <WorkspaceHeaderExplorerToggle
               owner={explorerToggleOwner}
               onPress={handleToggleExplorerSidebar}

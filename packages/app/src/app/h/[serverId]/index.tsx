@@ -1,3 +1,5 @@
+import { isWocEmbedded } from "@/woc/mode";
+import { WocHostIndex } from "@/woc/host-index";
 import { Redirect } from "expo-router";
 import { useHostRouteServerId } from "@/navigation/host-route-context";
 import {
@@ -23,6 +25,8 @@ export default function HostIndexRoute() {
   if (!serverId || !isWorkspaceSelectionLoaded) {
     return <StartupSplashScreen />;
   }
+
+  if (isWocEmbedded) return <WocHostIndex serverId={serverId} />;
 
   return (
     <Redirect

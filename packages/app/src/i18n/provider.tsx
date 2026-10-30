@@ -1,3 +1,4 @@
+import { isWocEmbedded } from "@/woc/mode";
 import * as Localization from "expo-localization";
 import { type ReactNode, useMemo } from "react";
 import { I18nextProvider } from "react-i18next";
@@ -22,7 +23,7 @@ function getSystemLocales(): string[] {
 export function I18nProvider({ children }: I18nProviderProps) {
   const { settings } = useAppSettings();
   const systemLocales = useMemo(() => getSystemLocales(), []);
-  const locale = resolveSupportedLocale(settings.language, systemLocales);
+  const locale = resolveSupportedLocale(isWocEmbedded ? "zh-CN" : settings.language, systemLocales);
 
   ensureI18nLanguageForRender(locale, i18n);
 

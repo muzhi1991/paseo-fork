@@ -1,3 +1,4 @@
+import { isWocEmbedded } from "@/woc/mode";
 import {
   createContext,
   useCallback,
@@ -243,6 +244,13 @@ export function useWorkspaceTabLaunchCatalog(input: {
         },
       });
     }
+    if (isWocEmbedded)
+      return groups
+        .map((group) => ({
+          ...group,
+          items: group.items.filter((item) => item.panelKind === "files"),
+        }))
+        .filter((group) => group.items.length > 0);
     if (surface !== "menu") return groups;
     return groups.flatMap((group) => {
       const items = group.items.filter((item) =>

@@ -1,3 +1,5 @@
+import { isWocEmbedded } from "@/woc/mode";
+import { WocSidebar } from "@/woc/sidebar";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useActiveWorkspaceSelection } from "@/stores/navigation-active-workspace-store";
 import { useIsExplorerSidebarOpen } from "@/workspace-tabs/explorer-sidebar";
@@ -545,6 +547,7 @@ function SidebarChrome({
   const isMobileActive = useIsMobilePanelActive("agent-list");
   const isDesktopOpen = usePanelStore((state) => state.desktop.agentListOpen);
   const active = visible && (isCompactLayout ? isMobileActive : isDesktopOpen);
+  if (isWocEmbedded) return mounted ? <WocSidebar active={active} /> : null;
   return (
     <SidebarModelProvider active={active}>
       {mounted ? <LeftSidebar active={active} /> : null}
