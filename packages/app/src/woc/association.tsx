@@ -25,10 +25,11 @@ export async function wocRequest<T>(path: string, method = "GET", body?: unknown
   const r = await fetch("/woc-api/" + path, {
     method,
     headers: { "content-type": "application/json" },
+    signal: AbortSignal.timeout(10000),
     ...(method === "GET" || body === undefined ? {} : { body: JSON.stringify(body) }),
   });
   const data = await r.json();
-  if (!r.ok) throw Error(data.error || "请求失败");
+  if (!r.ok) throw Object.assign(Error(data.error || "请求失败"), { status: r.status });
   return data;
 }
 export const associate = (agentId: string, machineId: string | null) =>
@@ -125,6 +126,14 @@ export function WocMachineEntry({ serverId }: { serverId: string }) {
     [missing, setMissing] = useState(false),
     [text, setText] = useState("");
   const [error, setError] = useState("");
+  const [attempt, setAttempt] = useState(0);
+  const retry = useCallback(() => {
+    setError("");
+    setAttempt((value) => value + 1);
+  }, []);
+  const backToRuns = useCallback(() => {
+    if (document.referrer) window.open(new URL("/automation", document.referrer).href, "_top");
+  }, []);
   const workspaceId = config.data?.workspaceId;
   useEffect(() => {
     if (!client || !workspaceId || ready || missing) return;
@@ -147,6 +156,7 @@ export function WocMachineEntry({ serverId }: { serverId: string }) {
               bindings.associations[e.agent.id]?.id === entryMachine,
           )?.agent.id || null;
       }
+      if (id) await wocRequest("associations/" + encodeURIComponent(id));
       if (!live) return;
       if (id) {
         // Explicit history links must survive reconciliation of the active-only directory.
@@ -154,12 +164,17 @@ export function WocMachineEntry({ serverId }: { serverId: string }) {
         setReady(true);
       } else setMissing(true);
     })().catch((e) => {
-      if (live) setError(e.message);
+      if (live)
+        setError(
+          e.status === 404
+            ? "会话已删除或不存在，无法打开。"
+            : "暂时无法打开会话，请检查连接后重试。",
+        );
     });
     return () => {
       live = false;
     };
-  }, [client, workspaceId, ready, missing, serverId]);
+  }, [client, workspaceId, ready, missing, serverId, attempt]);
   const created = useRef<string | null>(null);
   const start = useMutation({
     mutationFn: async () => {
@@ -198,11 +213,12 @@ export function WocMachineEntry({ serverId }: { serverId: string }) {
   });
   const { mutate: startTask } = start;
   const submit = useCallback(() => startTask(), [startTask]);
+  const entryTitle = missing ? "在这台电脑开始新对话" : "正在打开关联会话…";
   if (ready) return null;
   return (
     <View style={styles.entry} testID="woc-machine-entry">
       <View style={styles.entryCard}>
-        <Text style={styles.title}>{missing ? "在这台电脑开始新对话" : "正在打开关联会话…"}</Text>
+        <Text style={styles.title}>{error ? "无法打开会话" : entryTitle}</Text>
         {missing && (
           <>
             <EditingTextInput
@@ -219,6 +235,12 @@ export function WocMachineEntry({ serverId }: { serverId: string }) {
             >
               {created.current ? "打开已创建会话" : "开始对话"}
             </Button>
+          </>
+        )}
+        {error && (
+          <>
+            <Button onPress={retry}>重试</Button>
+            {document.referrer && <Button onPress={backToRuns}>返回运行记录</Button>}
           </>
         )}
         {(error || start.error) && (

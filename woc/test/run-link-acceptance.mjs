@@ -43,6 +43,36 @@ try {
     expect(await p.evaluate(() => window.__selectedAgents.at(-1))).toBe(run.result.agent_id);
   }
   console.log("Run history opens the recorded Agent, including after reload and reconciliation");
+
+  const targetApi = "**/woc-api/associations/" + run.result.agent_id;
+  await p.route(targetApi, (route) =>
+    route.fulfill({
+      status: 503,
+      contentType: "application/json",
+      body: '{"error":"Acceptance unavailable"}',
+    }),
+  );
+  await p.goto(base + "/agent?conversation=" + run.result.agent_id);
+  const entry = f.getByTestId("woc-machine-entry");
+  await expect(entry.getByRole("alert")).toContainText("暂时无法打开会话", { timeout: 15000 });
+  await expect(entry.getByRole("alert")).not.toContainText("已删除");
+  await p.unroute(targetApi);
+  await entry.getByRole("button", { name: "重试", exact: true }).click();
+  await expect(entry).toBeHidden({ timeout: 15000 });
+  await expect
+    .poll(() => p.evaluate(() => window.__selectedAgents.at(-1)))
+    .toBe(run.result.agent_id);
+
+  const missingId = process.env.WOC_DELETED_AGENT_ID || "00000000-0000-4000-8000-000000000000";
+  await p.goto(base + "/agent?conversation=" + missingId);
+  await expect(entry.getByRole("alert")).toContainText("会话已删除或不存在", { timeout: 15000 });
+  await entry.getByRole("button", { name: "重试", exact: true }).click();
+  await expect(entry.getByRole("alert")).toContainText("会话已删除或不存在", { timeout: 15000 });
+  await entry.getByRole("button", { name: "返回运行记录", exact: true }).click();
+  await expect(p).toHaveURL(base + "/automation");
+  console.log(
+    "Unavailable target can retry; deleted target stays on an error page with a return link",
+  );
 } finally {
   await browser.close();
 }
