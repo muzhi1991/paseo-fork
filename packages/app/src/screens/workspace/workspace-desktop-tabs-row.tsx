@@ -1,3 +1,4 @@
+import { WocTargetPicker } from "@/woc/association";
 import { isWocEmbedded } from "@/woc/mode";
 import { WocFilesToggle } from "@/woc/files-toggle";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
@@ -1434,6 +1435,7 @@ function ResolvedWorkspaceDesktopTabsRow({
           rightStyle={tabScrollBoundary.rightShadeStyle}
         />
       </View>
+      <WocDesktopTarget host={host} tabs={tabs} />
       {isWocEmbedded && host === "main" && (
         <WocFilesToggle serverId={normalizedServerId} workspaceId={normalizedWorkspaceId} />
       )}
@@ -1806,3 +1808,12 @@ const styles = StyleSheet.create((theme) => ({
     fontSize: theme.fontSize.sm,
   },
 }));
+
+function WocDesktopTarget({
+  host,
+  tabs,
+}: Pick<ResolvedWorkspaceDesktopTabsRowProps, "host" | "tabs">) {
+  if (!isWocEmbedded || host !== "main") return null;
+  const current = tabs.find((item) => item.isActive)?.tab.target;
+  return current?.kind === "agent" ? <WocTargetPicker agentId={current.agentId} /> : null;
+}

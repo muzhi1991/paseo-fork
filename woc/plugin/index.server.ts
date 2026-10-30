@@ -9,7 +9,14 @@ export default function contribute(server: PluginServerContext) {
     );
     return {
       ...request,
-      env: { ...request.env, WOC_CLIENT_CONFIG: identity.config, CUA_HOME: identity.cuaHome },
+      env: {
+        ...request.env,
+        WOC_CLIENT_CONFIG: identity.config,
+        CUA_HOME: identity.cuaHome,
+        WOC_AGENT_ID: request.agentId,
+        WOC_ASSOCIATIONS_FILE:
+          process.env.WOC_ASSOCIATIONS_FILE || "/state/agent-associations.json",
+      },
       mcpServers: {
         ...request.mcpServers,
         woc: {

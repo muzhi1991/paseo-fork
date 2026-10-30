@@ -1,3 +1,4 @@
+import { WocMachineEntry, entryMachine, associate } from "./association";
 import { useCallback, useState } from "react";
 import { ScrollView, Text, View } from "react-native";
 import { StyleSheet, withUnistyles } from "react-native-unistyles";
@@ -29,8 +30,13 @@ const chatsIcon = <ChatsIcon size={18} uniProps={mutedIconColorMapping} />;
 export function WocSidebar({ active }: { active: boolean }) {
   const hosts = useHosts();
   const serverId = hosts[0]?.serverId;
-  if (!active || !serverId) return null;
-  return <WocConversations serverId={serverId} />;
+  if (!serverId) return null;
+  return (
+    <>
+      <WocMachineEntry serverId={serverId} />
+      {active && <WocConversations serverId={serverId} />}
+    </>
+  );
 }
 async function fetchHistory(client: DaemonClient) {
   const entries: FetchAgentsEntry[] = [];
@@ -87,6 +93,14 @@ function WocConversations({ serverId }: { serverId: string }) {
           provider: "pi",
           model: config.data.model,
         });
+        if (entryMachine) {
+          try {
+            await associate(agent.id, entryMachine);
+          } catch (error) {
+            await client.deleteAgent(agent.id);
+            throw error;
+          }
+        }
         setArchived(false);
         open(agent.id);
       }),

@@ -1,3 +1,5 @@
+import { proxyTrigger } from "./trigger-proxy.mjs";
+import { agentApi } from "./associations.mjs";
 import http from "node:http";
 import { readFileSync } from "node:fs";
 import { createGzip } from "node:zlib";
@@ -90,7 +92,17 @@ function isVersionedWebAsset(req, response) {
     )
   );
 }
+const handleAgentApi = agentApi({ password, upstream, workspace, panel });
 const server = http.createServer(async (req, res) => {
+  if (
+    /^\/hooks\/[a-f0-9-]{36}$/.test(req.url || "") &&
+    req.method === "POST" &&
+    req.headers.host === new URL(publicOrigin).host
+  ) {
+    await proxyTrigger(req, res, { webhook: true });
+    return;
+  }
+
   if (!(await authenticated(req))) {
     res.writeHead(401, {
       "content-type": "text/plain; charset=utf-8",
@@ -99,6 +111,11 @@ const server = http.createServer(async (req, res) => {
     res.end("请先登录 WOC 管理员账号，再打开 AI 助手。");
     return;
   }
+  if (req.url?.startsWith("/automation/")) {
+    await proxyTrigger(req, res);
+    return;
+  }
+  if (await handleAgentApi(req, res)) return;
   if (req.url === "/woc-config") {
     try {
       const workspaceId = await workspace();

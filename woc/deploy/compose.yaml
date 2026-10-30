@@ -15,6 +15,10 @@ services:
       WOC_PROVISION_TOKEN_FILE: /run/secrets/provision-token
       WOC_PASEO_PASSWORD_FILE: /run/secrets/paseo-password
       WOC_IDENTITIES_DIR: /state/identities
+      WOC_ASSOCIATIONS_FILE: /state/agent-associations.json
+      WOC_TRIGGER_CONFIG: /state/automation/config.json
+      WOC_TRIGGER_TOKEN_FILE: /state/automation/admin.token
+      WOC_TRIGGER_URL: http://127.0.0.1:6771
       TZ: Asia/Shanghai
     volumes:
       - ./state:/state

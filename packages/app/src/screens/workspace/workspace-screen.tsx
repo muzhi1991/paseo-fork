@@ -1,3 +1,4 @@
+import { WocTargetPicker } from "@/woc/association";
 import { isWocEmbedded } from "@/woc/mode";
 import { planTimelineTailFetch } from "@/timeline/timeline-sync-plan";
 import { useHostFeature } from "@/runtime/host-features";
@@ -3393,43 +3394,53 @@ function WorkspaceScreenContent({
           explorerToggleLabel={explorerSidebarToggleLabel}
           explorerToggleAccessibilityState={explorerSidebarToggleAccessibilityState}
         >
-          <MobileWorkspaceTabSwitcher
-            tabs={tabs}
-            activeTabKey={activeTabKey}
-            normalizedServerId={normalizedServerId}
-            normalizedWorkspaceId={normalizedWorkspaceId}
-            onSelectSwitcherTab={handleSelectSwitcherTab}
-            createTerminalDisabled={createTerminalDisabled}
-            onCreateDraftTab={handleCreateDraftTab}
-            onCreateTerminal={handleCreateTerminal}
-            onCopyResumeCommand={handleCopyResumeCommand}
-            onCopyAgentId={handleCopyAgentId}
-            onCopyTerminalId={handleCopyTerminalId}
-            onCopyFilePath={handleCopyFilePath}
-            onReloadAgent={handleReloadAgent}
-            onRenameTab={handleRenameTab}
-            onCloseTab={handleCloseTabById}
-            onCloseTabsAbove={handleCloseTabsToLeft}
-            onCloseTabsBelow={handleCloseTabsToRight}
-            onCloseOtherTabs={handleCloseOtherTabs}
-          />
-          <WorkspaceHeaderMenuMobile
-            normalizedServerId={normalizedServerId}
-            normalizedWorkspaceId={normalizedWorkspaceId}
-            scripts={compactHeaderScripts}
-            currentBranchName={currentBranchName}
-            showWorkspaceSetup={showWorkspaceSetup}
-            showCreateBrowserTab={showCreateBrowserTab}
-            createTerminalDisabled={createTerminalDisabled}
-            importAgentDisabled={!canOpenImportSheet}
-            copyPathDisabled={!workspaceDirectory}
-            onCreateTerminalWithProfile={handleCreateTerminalWithProfile}
-            onCreateBrowser={handleCreateBrowserTab}
-            onOpenImportSheet={openImportSheet}
-            onCopyWorkspacePath={handleCopyWorkspacePath}
-            onCopyBranchName={handleCopyBranchName}
-            onOpenSetupTab={handleOpenSetupTab}
-          />
+          {isWocEmbedded &&
+            tabs.map((tab) =>
+              tab.key === activeTabKey && tab.target.kind === "agent" ? (
+                <WocTargetPicker key={tab.target.agentId} agentId={tab.target.agentId} />
+              ) : null,
+            )}
+          {!isWocEmbedded && (
+            <MobileWorkspaceTabSwitcher
+              tabs={tabs}
+              activeTabKey={activeTabKey}
+              normalizedServerId={normalizedServerId}
+              normalizedWorkspaceId={normalizedWorkspaceId}
+              onSelectSwitcherTab={handleSelectSwitcherTab}
+              createTerminalDisabled={createTerminalDisabled}
+              onCreateDraftTab={handleCreateDraftTab}
+              onCreateTerminal={handleCreateTerminal}
+              onCopyResumeCommand={handleCopyResumeCommand}
+              onCopyAgentId={handleCopyAgentId}
+              onCopyTerminalId={handleCopyTerminalId}
+              onCopyFilePath={handleCopyFilePath}
+              onReloadAgent={handleReloadAgent}
+              onRenameTab={handleRenameTab}
+              onCloseTab={handleCloseTabById}
+              onCloseTabsAbove={handleCloseTabsToLeft}
+              onCloseTabsBelow={handleCloseTabsToRight}
+              onCloseOtherTabs={handleCloseOtherTabs}
+            />
+          )}
+          {!isWocEmbedded && (
+            <WorkspaceHeaderMenuMobile
+              normalizedServerId={normalizedServerId}
+              normalizedWorkspaceId={normalizedWorkspaceId}
+              scripts={compactHeaderScripts}
+              currentBranchName={currentBranchName}
+              showWorkspaceSetup={showWorkspaceSetup}
+              showCreateBrowserTab={showCreateBrowserTab}
+              createTerminalDisabled={createTerminalDisabled}
+              importAgentDisabled={!canOpenImportSheet}
+              copyPathDisabled={!workspaceDirectory}
+              onCreateTerminalWithProfile={handleCreateTerminalWithProfile}
+              onCreateBrowser={handleCreateBrowserTab}
+              onOpenImportSheet={openImportSheet}
+              onCopyWorkspacePath={handleCopyWorkspacePath}
+              onCopyBranchName={handleCopyBranchName}
+              onOpenSetupTab={handleOpenSetupTab}
+            />
+          )}
         </CompactWorkspaceHeader>
       ) : null,
     [

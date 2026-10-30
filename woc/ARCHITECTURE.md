@@ -1,0 +1,14 @@
+# WOC embedding seam
+
+The fork keeps upstream Paseo's daemon, Agent lifecycle, model adapters, history and files. `?woc=1` gates the simplified Web UI. Other UI is hidden in WOC mode, not deleted.
+
+- `plugin/index.server.ts`: each conversation gets its own WOC/Cua identity; original Cua MCP and WOC MCP remain separate tools. No GUI lock state is kept here.
+- `runtime/associations.mjs`: authenticated WOC-specific HTTP API stores default machine by Agent ID in `/state/agent-associations.json`. It validates the machine against the logged-in panel inventory and rejects changes during running/initializing tasks.
+- `runtime/target-extension.ts`: Pi `before_agent_start` reads the latest association once per task and appends it to that task's system prompt and a hidden per-task extension message. A live system-only update reached the request correctly but still produced the previous target; the hidden per-task context prevents that carryover. The precise upstream/model cause was not isolated. It is a default target, not an ACL or GUI lock. Adding another Agent provider requires an equivalent integration.
+- `packages/app/src/woc/association.tsx`: target picker and machine-page entry. URL parameters `woc_machine` and `woc_agent` select an existing linked conversation or create a new one. Parent postMessage uses an explicit origin; the WOC frame validates origin and frame identity.
+- `runtime/bridge.mjs`: WOC admin cookie authentication, WebSocket forwarding and private static-asset caching. New `/woc-api/*` stays local to the WOC seam. `/automation/*` proxies to the independent trigger service on loopback 6771 with its own management token. `/hooks/:id` forwards only a per-trigger Webhook token.
+- `runtime/start.mjs`: starts Paseo, loads the existing WOC plugin, starts bridge and optionally starts `woc-trigger`. The latter lives in the separate WechatOnCloud fork (`services/woc-trigger`) mounted at `/opt/woc`, alongside the shared skill directory. It does not modify Paseo schedules.
+
+Deployment: copy the mounted WOC runtime, web artifacts, skills and trigger service; install trigger dependencies with its lockfile under Linux Node >=22.13; run `/opt/woc/services/woc-trigger/src/configure.mjs` once; use `deploy/compose.yaml` environment and volumes. Keep runtime image pinned. Back up runtime, compose, settings and previous Web index; upload hashed assets before atomically replacing index. Do not restart WOC-managed desktops.
+
+Tests: `node --test woc/test/association.test.mjs woc/test/bridge.test.mjs`; `node --import tsx --test woc/test/plugin.test.mjs woc/test/target.test.mjs`; app typecheck/lint. Deployment acceptance is documented in WechatOnCloud's `doc/dev/WOC-Agent-会话关联与自动化.md`.

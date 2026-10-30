@@ -47,6 +47,11 @@ if (!existsSync(`${pi}/settings.json`))
     }),
     { mode: 0o600 },
   );
+// Merge our extension into existing settings without removing user settings.
+const piSettings = JSON.parse(readFileSync(`${pi}/settings.json`, "utf8"));
+const targetExtension = "/opt/paseo-woc/woc/runtime/target-extension.ts";
+piSettings.extensions = [...new Set([...(piSettings.extensions || []), targetExtension])];
+writeFileSync(`${pi}/settings.json`, JSON.stringify(piSettings), { mode: 0o600 });
 if (!existsSync(`${paseo}/config.json`))
   writeFileSync(
     `${paseo}/config.json`,
@@ -80,15 +85,18 @@ const daemon = spawn("paseo", ["daemon", "run"], {
   env: { ...process.env, PASEO_PASSWORD: password },
 });
 let bridge;
+let trigger;
 let stopped = false;
 function stop(signal) {
   stopped = true;
   daemon.kill(signal);
   bridge?.kill(signal);
+  trigger?.kill(signal);
 }
 for (const signal of ["SIGTERM", "SIGINT"]) process.on(signal, () => stop(signal));
 daemon.on("exit", (code) => {
   bridge?.kill("SIGTERM");
+  trigger?.kill("SIGTERM");
   process.exit(code ?? 1);
 });
 for (let i = 0; i < 120; i++) {
@@ -112,6 +120,20 @@ try {
   else await client.installDirectoryPlugin("/opt/paseo-woc/woc/plugin");
 } finally {
   await client.close();
+}
+// Separate daemon, same container. Its state and lifecycle are independent of Paseo schedules.
+if (process.env.WOC_TRIGGER_CONFIG) {
+  const launchTrigger = () => {
+    trigger = spawn(
+      "node",
+      ["/opt/woc/services/woc-trigger/src/server.mjs", process.env.WOC_TRIGGER_CONFIG],
+      { stdio: "inherit", env: process.env },
+    );
+    trigger.on("exit", () => {
+      if (!stopped) setTimeout(launchTrigger, 3000);
+    });
+  };
+  launchTrigger();
 }
 bridge = spawn("node", ["/opt/paseo-woc/woc/runtime/bridge.mjs"], {
   stdio: "inherit",
